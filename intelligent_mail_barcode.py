@@ -144,14 +144,14 @@ def convert_routing_code(zip):
 
 
 def unconvert_routing_code(n):
+    # Must be done in this order to avoid a negative return value in a case like a ZIP code of 999984444
+    if n > 0:
+        n -= 1
+    if n > 100000:
+        n -= 100000
     if n > 1000000000:
-        return n - (1000000000 + 100000 + 1)
-    elif n > 100000:
-        return n - (100000 + 1)
-    elif n:
-        return n - 1
-    else:
-        return 0
+        n -= 1000000000
+    return n
 
 
 def convert_tracking_code(enc, track):
@@ -267,7 +267,7 @@ def decode(codes):
         if bump:
             val += 1287
         r.append(val)
-    if r[0] > 659:
+    if r[0] >= 659:
         fcs |= 1 << 10
         r[0] -= 659
     r[9] >>= 1
@@ -277,16 +277,16 @@ def decode(codes):
     a, tracking = unconvert_tracking_code(binary)
     routing = unconvert_routing_code(a)
     routing = '%d' % (routing,)
-    print    ('routing', routing)
+    print('routing', routing)
     if len(routing) == 11:
-        print        ('zip %s-%s delivery point %s' % (routing[:5], routing[5:9], routing[9:]))
+        print('zip %s-%s delivery point %s' % (routing[:5], routing[5:9], routing[9:]))
     elif len(routing) == 9:
-        print        ('zip %s-%s' % (routing[:5], routing[5:9]))
+        print('zip %s-%s' % (routing[:5], routing[5:9]))
     elif len(routing) == 5:
-        print        ('zip %s' % (routing[:5],))
+        print('zip %s' % (routing[:5],))
     else:
-        print        ('zip: empty')
-    print    ('tracking', tracking)
+        print('zip: empty')
+    print('tracking', tracking)
     barcode_id = tracking[0:2]
     service_type = tracking[2:5]
     if tracking[5] == '9':
@@ -296,9 +296,9 @@ def decode(codes):
         mailer_id = tracking[5:5 + 6]
         serial = tracking[5 + 6:5 + 6 + 9]
     print('barcode_id', barcode_id)
-    print    ('service_type', service_type)
-    print    ('mailer_id', mailer_id)
-    print    ('serial', serial)
+    print('service_type', service_type)
+    print('mailer_id', mailer_id)
+    print('serial', serial)
 
 
 def render_ascii(code):
@@ -442,6 +442,3 @@ if __name__ == '__main__':
                 sys.argv[0], sys.argv[0]
             )
         )
-
-
-
