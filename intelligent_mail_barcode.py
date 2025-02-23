@@ -28,14 +28,15 @@ import sys
 
 W = sys.stderr.write
 
+
 # Note: this could probably be written much more simply...
-def crc11 (input):
+def crc11(input1):
     gen_poly = 0x0f35
     FCS = 0x07ff
-    data = input[0] << 5
+    data = input1[0] << 5
     pos = 1
     # do the most significant byte skipping the 2 most significant bits
-    for bit in range (2, 8):
+    for bit in range(2, 8):
         if (FCS ^ data) & 0x400:
             FCS = (FCS << 1) ^ gen_poly
         else:
@@ -43,9 +44,9 @@ def crc11 (input):
         FCS &= 0x7ff
         data <<= 1
     # do the rest of the bytes
-    for byte_index in range (1, 13):
-        data = input[byte_index] << 3
-        for bit in range (8):
+    for byte_index in range(1, 13):
+        data = input1[byte_index] << 3
+        for bit in range(8):
             if (FCS ^ data) & 0x400:
                 FCS = (FCS << 1) ^ gen_poly
             else:
@@ -54,21 +55,23 @@ def crc11 (input):
             data <<= 1
     return FCS
 
-def reverse_int16 (input):
+
+def reverse_int16(input):
     reverse = 0
-    for i in range (16):
+    for i in range(16):
         reverse <<= 1
         reverse |= input & 1
         input >>= 1
     return reverse
 
+
 # no clue what this code actually does, it's not explained in the source.
 # I assume it's doing some kind of pre-computed table for a hamming code?
-def init_n_of_13 (n, table_length):
+def init_n_of_13(n, table_length):
     table = {}
     index_low = 0
     index_hi = table_length - 1
-    for i in range (8192):
+    for i in range(8192):
         bit_count = bin(i).count('1')
         # If we don't have the right number of bits on, go on to the next value
         if bit_count != n:
@@ -90,32 +93,35 @@ def init_n_of_13 (n, table_length):
             index_low += 1
     # Make sure the lower and upper parts of the table meet properly
     if index_low != index_hi + 1:
-        raise ValueError (index_low, index_hi)
+        raise ValueError(index_low, index_hi)
     return table
+
 
 def make_inverted_tabs():
     global inverted
     inverted = {}
     for k, v in tab5.items():
-        if inverted.has_key (v):
+        if v in inverted:
             raise ValueError
         inverted[v] = (0, k)
     for k, v in tab2.items():
-        if inverted.has_key (v):
+        if v in inverted:
             raise ValueError
         inverted[v] = (1, k)
 
-def binary_to_codewords (n):
+
+def binary_to_codewords(n):
     r = []
-    n, x = divmod (n, 636)
-    r.append (x)
-    for i in range (9):
-        n, x = divmod (n, 1365)
-        r.append (x)
+    n, x = divmod(n, 636)
+    r.append(x)
+    for i in range(9):
+        n, x = divmod(n, 1365)
+        r.append(x)
     r.reverse()
     return r
 
-def codewords_to_binary (codes):
+
+def codewords_to_binary(codes):
     n = 0
     cr = codes[:]
     for code in cr[:-1]:
@@ -123,7 +129,8 @@ def codewords_to_binary (codes):
     n = (n * 636) + cr[-1]
     return n
 
-def convert_routing_code (zip):
+
+def convert_routing_code(zip):
     if len(zip) == 0:
         return 0
     elif len(zip) == 5:
@@ -133,9 +140,10 @@ def convert_routing_code (zip):
     elif len(zip) == 11:
         return int(zip) + 1000000000 + 100000 + 1
     else:
-        raise ValueError (zip)
+        raise ValueError(zip)
 
-def unconvert_routing_code (n):
+
+def unconvert_routing_code(n):
     if n > 1000000000:
         return n - (1000000000 + 100000 + 1)
     elif n > 100000:
@@ -145,152 +153,160 @@ def unconvert_routing_code (n):
     else:
         return 0
 
-def convert_tracking_code (enc, track):
-    assert (len (track) == 20)
+
+def convert_tracking_code(enc, track):
+    assert (len(track) == 20)
     enc = (enc * 10) + int(track[0])
-    enc = (enc *  5) + int(track[1])
-    for i in range (2, 20):
-        enc = (enc * 10) + int (track[i])
+    enc = (enc * 5) + int(track[1])
+    for i in range(2, 20):
+        enc = (enc * 10) + int(track[i])
     return enc
 
-def unconvert_tracking_code (n):
-    r = []
-    for i in range (2, 20):
-        n, x = divmod (n, 10)
-        r.append (x)
-    n, x = divmod (n, 5)
-    r.append (x)
-    n, x = divmod (n, 10)
-    r.append (x)
-    r.reverse()
-    return n, ''.join ([str(int(x)) for x in r])
 
-def to_bytes (val, nbytes):
+def unconvert_tracking_code(n):
     r = []
-    for i in range (nbytes):
-        r.append (val & 0xff)
+    for i in range(2, 20):
+        n, x = divmod(n, 10)
+        r.append(x)
+    n, x = divmod(n, 5)
+    r.append(x)
+    n, x = divmod(n, 10)
+    r.append(x)
+    r.reverse()
+    return n, ''.join([str(int(x)) for x in r])
+
+
+def to_bytes(val, nbytes):
+    r = []
+    for i in range(nbytes):
+        r.append(val & 0xff)
         val >>= 8
     r.reverse()
     return r
 
-def encode (barcode_id, service_type_id, mailer_id, serial, delivery):
-    n = convert_routing_code (delivery)
+
+def encode(barcode_id, service_type_id, mailer_id, serial, delivery):
+    n = convert_routing_code(delivery)
     if str(mailer_id)[0] == '9':
         tracking = '%02d%03d%09d%06d' % (
             barcode_id,
             service_type_id,
             mailer_id,
             serial
-            )
+        )
     else:
         tracking = '%02d%03d%06d%09d' % (
             barcode_id,
             service_type_id,
             mailer_id,
             serial
-            )
-    n = convert_tracking_code (n, tracking)
+        )
+    n = convert_tracking_code(n, tracking)
     # convert to bytes for byte-based crc11 fun
-    fcs = crc11 (to_bytes (n, 13))
-    codewords = binary_to_codewords (n)
+    fcs = crc11(to_bytes(n, 13))
+    codewords = binary_to_codewords(n)
     codewords[9] *= 2
-    if fcs & (1<<10):
+    if fcs & (1 << 10):
         codewords[0] += 659
     r = []
     for b in codewords:
         if b < 1287:
-            r.append (tab5[b])
+            r.append(tab5[b])
         elif 127 <= b <= 1364:
-            r.append (tab2[b-1287])
+            r.append(tab2[b - 1287])
         else:
             raise ValueError
-    for i in range (10):
-        if fcs & 1<<i:
+    for i in range(10):
+        if fcs & 1 << i:
             r[i] = r[i] ^ 0x1fff
-    return make_bars (r)
+    return make_bars(r)
+
 
 # the bits from the table seem scattered, there's probably some
 #   logic behind the table that I haven't grokked yet...
-def make_bars (code):
+def make_bars(code):
     r = []
-    for i in range (65):
+    for i in range(65):
         index, bit = tableA[i]
-        ascend  = (code[index] & (1<<bit) != 0)
+        ascend = (code[index] & (1 << bit) != 0)
         index, bit = tableD[i]
-        descend = (code[index] & (1<<bit) != 0)
-        r.append ('TADF'[descend<<1|ascend])
-    return ''.join (r)
+        descend = (code[index] & (1 << bit) != 0)
+        r.append('TADF'[descend << 1 | ascend])
+    return ''.join(r)
 
-def unbar (code):
-    assert (len (code) == 65)
+
+def unbar(code):
+    assert (len(code) == 65)
     r = [0] * 10
-    for i in range (65):
+    for i in range(65):
         ch = code[i]
         ia, ba = tableA[i]
         id, bd = tableD[i]
         if ch == 'A':
-            r[ia] |= 1<<ba
+            r[ia] |= 1 << ba
         elif ch == 'D':
-            r[id] |= 1<<bd
+            r[id] |= 1 << bd
         elif ch == 'F':
-            r[ia] |= 1<<ba
-            r[id] |= 1<<bd
+            r[ia] |= 1 << ba
+            r[id] |= 1 << bd
         else:
             pass
     return r
 
-def decode (codes):
+
+def decode(codes):
     fcs = 0
-    codes = unbar (codes)
+    codes = unbar(codes)
     r = []
-    for i in range (10):
+    for i in range(10):
         code = codes[i]
-        if not inverted.has_key (code):
+        if not code in inverted:
             code = code ^ 0x1fff
-            fcs |= 1<<i
+            fcs |= 1 << i
         bump, val = inverted[code]
         if bump:
             val += 1287
-        r.append (val)
+        r.append(val)
     if r[0] > 659:
-        fcs |= 1<<10
+        fcs |= 1 << 10
         r[0] -= 659
     r[9] >>= 1
-    binary = codewords_to_binary (r)
-    fcs0 = crc11 (to_bytes (binary, 13))
-    decimal = '%020d' % (int (binary),)
-    a, tracking = unconvert_tracking_code (binary)
-    routing = unconvert_routing_code (a)
+    binary = codewords_to_binary(r)
+    fcs0 = crc11(to_bytes(binary, 13))
+    decimal = '%020d' % (int(binary),)
+    a, tracking = unconvert_tracking_code(binary)
+    routing = unconvert_routing_code(a)
     routing = '%d' % (routing,)
-    print 'routing', routing
+    print    ('routing', routing)
     if len(routing) == 11:
-        print 'zip %s-%s delivery point %s' % (routing[:5], routing[5:9], routing[9:])
+        print        ('zip %s-%s delivery point %s' % (routing[:5], routing[5:9], routing[9:]))
     elif len(routing) == 9:
-        print 'zip %s-%s' % (routing[:5], routing[5:9])
+        print        ('zip %s-%s' % (routing[:5], routing[5:9]))
     elif len(routing) == 5:
-        print 'zip %s' % (routing[:5],)
+        print        ('zip %s' % (routing[:5],))
     else:
-        print 'zip: empty'
-    print 'tracking', tracking
+        print        ('zip: empty')
+    print    ('tracking', tracking)
     barcode_id = tracking[0:2]
     service_type = tracking[2:5]
     if tracking[5] == '9':
-        mailer_id = tracking[5:5+9]
-        serial = tracking[5+9:5+9+6]
+        mailer_id = tracking[5:5 + 9]
+        serial = tracking[5 + 9:5 + 9 + 6]
     else:
-        mailer_id = tracking[5:5+6]
-        serial = tracking[5+6:5+6+9]
-    print 'barcode_id', barcode_id
-    print 'service_type', service_type
-    print 'mailer_id', mailer_id
-    print 'serial', serial
+        mailer_id = tracking[5:5 + 6]
+        serial = tracking[5 + 6:5 + 6 + 9]
+    print('barcode_id', barcode_id)
+    print    ('service_type', service_type)
+    print    ('mailer_id', mailer_id)
+    print    ('serial', serial)
 
-def render_ascii (code):
+
+def render_ascii(code):
     "render the letter sequence into something resembling the actual bar code"
     center = ['|'] * 65
-    blank  = [' '] * 65
+    blank = [' '] * 65
     r = blank[:], center[:], blank[:]
-    for i in range (65):
+    for i in range(65):
         if code[i] == 'A':
             r[0][i] = '|'
         elif code[i] == 'D':
@@ -303,11 +319,12 @@ def render_ascii (code):
     import sys
     W = sys.stderr.write
     for x in r:
-        W (''.join (x) + '\n')
+        W(''.join(x) + '\n')
 
-def render_html (code):
-    sys.stdout.write (
-        '\n'.join ([
+
+def render_html(code):
+    sys.stdout.write(
+        '\n'.join([
             '<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML//EN">',
             '<html> <head>',
             '<title></title>',
@@ -316,15 +333,16 @@ def render_html (code):
             '<p style="font-family:USPSIMBStandard;font-size:16pt">',
             code,
             '</p></body></html>\n',
-            ])
-        )
+        ])
+    )
+
 
 def process_bar_table():
     "convert the bar table from the spec into something more usable."
     global tableA, tableD
     tableA = {}
     tableD = {}
-    for i in range (65):
+    for i in range(65):
         entry = bar_table[i]
         i0, d, i1, a = entry.split()
         i0 = ord(i0) - 65
@@ -333,6 +351,7 @@ def process_bar_table():
         a = int(a)
         tableD[i] = i0, d
         tableA[i] = i1, a
+
 
 # last table from the spec, can this be generated?
 bar_table = [
@@ -349,7 +368,7 @@ bar_table = [
     'F 0 E 5', 'C 3 A 10', 'G 12 J 2', 'D 11 B 6', 'I 8 H 9',
     'F 4 A 11', 'B 5 C 2', 'J 1 E 12', 'I 3 G 6', 'H 0 D 7',
     'E 7 H 5', 'A 12 B 11', 'C 9 J 0', 'G 8 F 3', 'D 10 I 2',
-    ]
+]
 
 samples = [
     # example 4 from the spec
@@ -358,53 +377,58 @@ samples = [
     "FDDAATADTTTFDDADAFFADAFAATFFDDFADFATTAAFDDDDFTTFADFFFDAFFDDFFDDTD",
     # the code printed on the USPS spec documents - their address
     "FAFFATDATTATFFFFTFTFFDTFFDAFDADTTDFAFDAADFTTDATDTATTDFDDTFFFFFTFD",
-    ]
+]
+
 
 # example 4 from the spec
 def t0():
-    return encode (1, 234, 567094, 987654321, '01234567891')
+    return encode(1, 234, 567094, 987654321, '01234567891')
+
 
 # quasi-real address
 def t1():
-    return encode (0, 700, 314159, 000000001, '95008200130')
+    return encode(0, 700, 123456789, 1, '95008200130')
+
 
 def run_tests():
     code = t0()
-    print code
+    print(code)
     code = t1()
-    decode (code)
+    decode(code)
     for sample in samples:
-        render_ascii (sample)
-        decode (sample)
-    
+        render_ascii(sample)
+        decode(sample)
+
+
 process_bar_table()
-tab5 = init_n_of_13 (5, 1287)
-tab2 = init_n_of_13 (2, 78)
+tab5 = init_n_of_13(5, 1287)
+tab2 = init_n_of_13(2, 78)
 make_inverted_tabs()
 
 if __name__ == '__main__':
     if '-t' in sys.argv:
-        sys.argv.remove ('-t')
+        sys.argv.remove('-t')
         run_tests()
     elif '-d' in sys.argv:
-        sys.argv.remove ('-d')
+        sys.argv.remove('-d')
         code = sys.argv[1]
-        render_ascii (code)
-        decode (code)
+        render_ascii(code)
+        decode(code)
     elif '-e' in sys.argv:
-        sys.argv.remove ('-e')
+        sys.argv.remove('-e')
         barcode_id, service_type, mailer, serial, delivery = sys.argv[1:]
-        code = encode (int(barcode_id), int(service_type), int(mailer), int(serial), delivery)
-        print code
-        render_ascii (code)
+        code = encode(int(barcode_id), int(service_type), int(mailer), int(serial), delivery)
+        print(code)
+        render_ascii(code)
     elif '-h' in sys.argv:
-        sys.argv.remove ('-h')
+        sys.argv.remove('-h')
         barcode_id, service_type, mailer, serial, delivery = sys.argv[1:]
-        code = encode (int(barcode_id), int(service_type), int(mailer), int(serial), delivery)
-        render_html (code)
+        code = encode(int(barcode_id), int(service_type), int(mailer), int(serial), delivery)
+        render_html(code)
     else:
         import sys
-        sys.stderr.write (
+
+        sys.stderr.write(
             "Usage: %s\n"
             "    -t : run tests\n"
             "    -d AAFDTDFDT... : decode\n"
@@ -416,9 +440,8 @@ if __name__ == '__main__':
             "Note: <delivery> is 5+4 digits of zip, plus 2 digits of delivery point,\n"
             "  (usually the last two digits of the street address).\n" % (
                 sys.argv[0], sys.argv[0]
-                )
             )
-        
-            
-            
-    
+        )
+
+
+
