@@ -131,6 +131,7 @@ def codewords_to_binary(codes):
 
 
 def convert_routing_code(zip):
+    zip = str(zip)
     if len(zip) == 0:
         return 0
     elif len(zip) == 5:
@@ -187,7 +188,7 @@ def to_bytes(val, nbytes):
 
 def encode(barcode_id, service_type_id, mailer_id, serial, delivery):
     n = convert_routing_code(delivery)
-    if str(mailer_id)[0] == '9':
+    if (str(mailer_id)[0] == '9') or (len(str(mailer_id))==9):
         tracking = '%02d%03d%09d%06d' % (
             barcode_id,
             service_type_id,
@@ -414,12 +415,17 @@ if __name__ == '__main__':
         code = sys.argv[1]
         render_ascii(code)
         decode(code)
+    elif '-a' in sys.argv:
+        sys.argv.remove('-a')
+        barcode_id, service_type, mailer, serial, delivery = sys.argv[1:]
+        code = encode(int(barcode_id), int(service_type), int(mailer), int(serial), delivery)
+        #print(code)
+        render_ascii(code)
     elif '-e' in sys.argv:
         sys.argv.remove('-e')
         barcode_id, service_type, mailer, serial, delivery = sys.argv[1:]
         code = encode(int(barcode_id), int(service_type), int(mailer), int(serial), delivery)
         print(code)
-        render_ascii(code)
     elif '-h' in sys.argv:
         sys.argv.remove('-h')
         barcode_id, service_type, mailer, serial, delivery = sys.argv[1:]
@@ -432,6 +438,7 @@ if __name__ == '__main__':
             "Usage: %s\n"
             "    -t : run tests\n"
             "    -d AAFDTDFDT... : decode\n"
+            "    -a barcode-id service-type mailer-id serial delivery : encode to ASCII\n"
             "    -e barcode-id service-type mailer-id serial delivery : encode to ASCII\n"
             "    -h barcode-id service-type mailer-id serial delivery : encode to HTML\n"
             "\n"
